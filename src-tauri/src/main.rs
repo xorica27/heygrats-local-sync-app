@@ -89,9 +89,10 @@ struct EventSummary {
 
 #[derive(Debug, Clone, Deserialize)]
 struct SignedUploadResponse {
-  path: String,
+  duplicate: Option<bool>,
+  path: Option<String>,
   #[serde(rename = "signedUrl")]
-  signed_url: String,
+  signed_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -387,9 +388,37 @@ async fn process_file(
       "filename": filename,
       "contentType": content_type,
       "deviceName": device_name,
+      "fingerprint": fingerprint,
     }),
   )
   .await?;
+
+  if signed.duplicate.unwrap_or(false) {
+    let remote_path = signed.path.unwrap_or_default();
+    cache.uploaded.insert(
+      fingerprint.clone(),
+      CachedUpload {
+        file_path: file_path.display().to_string(),
+        remote_path,
+        uploaded_at: chrono_like_now(),
+      },
+    );
+    save_cache(cache_path, cache)?;
+    emit_log(app, &format!("Skipped existing {}", relative_path));
+    if let Ok(mut current) = status.lock() {
+      current.last_message = Some(format!("Already synced {}", relative_path));
+      current.last_error = None;
+    }
+    emit_status(app, status);
+    return Ok(());
+  }
+
+  let signed_path = signed
+    .path
+    .ok_or_else(|| "Signed upload response missing path".to_string())?;
+  let signed_url = signed
+    .signed_url
+    .ok_or_else(|| "Signed upload response missing signed URL".to_string())?;
 
   let bytes = tokio::fs::read(file_path)
     .await
@@ -406,7 +435,7 @@ async fn process_file(
   );
 
   client
-    .put(&signed.signed_url)
+    .put(&signed_url)
     .headers(headers)
     .body(bytes)
     .send()
@@ -422,7 +451,7 @@ async fn process_file(
     &format!("{origin}/api/local-sync/commit"),
     &serde_json::json!({
       "token": token,
-      "path": signed.path,
+      "path": signed_path,
       "contentType": content_type,
       "originalName": filename,
       "fileSize": meta.len(),
@@ -437,7 +466,7 @@ async fn process_file(
     fingerprint.clone(),
     CachedUpload {
       file_path: file_path.display().to_string(),
-      remote_path: signed.path,
+      remote_path: signed_path,
       uploaded_at: chrono_like_now(),
     },
   );
