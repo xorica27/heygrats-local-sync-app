@@ -8,60 +8,110 @@
   </head>
   <body>
     <main class="shell">
-      <section class="hero">
-        <p class="eyebrow">HeyGrats Photobooth Tool</p>
-        <h1>Local Sync</h1>
-        <p class="lede">
-          Watch a folder on this booth machine and push new exports onto the
-          event wall in near real time.
-        </p>
-      </section>
-
-      <section class="card">
-        <div class="grid">
-          <label class="field">
-            <span>Live Origin</span>
-            <input
-              id="origin"
-              placeholder="https://your-live-domain.com or paste the dashboard URL"
-            />
-          </label>
-
-          <label class="field">
-            <span>Sync Token</span>
-            <input id="token" placeholder="hgsync_xxx" />
-          </label>
-
-          <label class="field">
-            <span>Device Name</span>
-            <input id="deviceName" placeholder="Booth MacBook 01" />
-          </label>
-
-          <div class="field">
-            <span>Watched Folder</span>
-            <div class="folder-row">
-              <input id="folder" placeholder="/Users/name/Desktop/exports" />
-              <button id="pickFolder" class="secondary" type="button">
-                Browse
-              </button>
+      <section class="hero card card-hero">
+        <div class="hero-mark">H</div>
+        <div class="hero-copy">
+          <p class="eyebrow">HeyGrats Photobooth Tool</p>
+          <h1>Local Sync</h1>
+          <p class="lede">
+            Keep the booth export folder connected to HeyGrats so new photos
+            land on the wall in near real time.
+          </p>
+          <div class="hero-meta">
+            <div class="meta-pill">
+              <span class="meta-label">Default site</span>
+              <strong id="originBadge">https://heygrats.com</strong>
+            </div>
+            <div class="meta-pill">
+              <span class="meta-label">Best for</span>
+              <strong>Photobooth vendors</strong>
             </div>
           </div>
         </div>
+      </section>
 
-        <div class="actions">
-          <button id="start" type="button">Start Sync</button>
-          <button id="stop" class="secondary" type="button">Stop Sync</button>
-          <button id="clearState" class="ghost" type="button">
-            Clear Local Cache
-          </button>
-        </div>
+      <section class="layout">
+        <section class="card card-primary">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Connect Booth</p>
+              <h2>Start a sync session</h2>
+            </div>
+            <div id="status" class="status idle">Idle</div>
+          </div>
 
-        <div id="status" class="status idle">Idle</div>
+          <div class="grid">
+            <label class="field field-full">
+              <span>Sync Token</span>
+              <input id="token" placeholder="Paste the token from dashboard/local-sync" />
+            </label>
+
+            <div class="field field-full">
+              <span>Watched Folder</span>
+              <div class="folder-row">
+                <input id="folder" placeholder="/Users/name/Desktop/exports" />
+                <button id="pickFolder" class="secondary" type="button">
+                  Browse
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button id="start" type="button">Start Sync</button>
+            <button id="stop" class="secondary" type="button">Stop Sync</button>
+            <button id="clearState" class="ghost" type="button">
+              Clear Local Cache
+            </button>
+          </div>
+
+          <details class="advanced">
+            <summary>Advanced</summary>
+            <div class="advanced-panel">
+              <label class="field field-full">
+                <span>Origin Override</span>
+                <input
+                  id="origin"
+                  placeholder="Leave empty to use https://heygrats.com"
+                />
+              </label>
+              <p class="hint">
+                Only change this for local or staging builds. Production sync
+                uses <strong>https://heygrats.com</strong>.
+              </p>
+            </div>
+          </details>
+        </section>
+
+        <aside class="stack">
+          <section class="card card-secondary">
+            <p class="eyebrow">Before You Start</p>
+            <h2>What you need</h2>
+            <ul class="mini-list">
+              <li>A fresh sync token from HeyGrats dashboard</li>
+              <li>The booth export folder on this machine</li>
+              <li>The app left open during the event</li>
+            </ul>
+          </section>
+
+          <section class="card card-secondary">
+            <p class="eyebrow">After Event</p>
+            <h2>Clean finish</h2>
+            <p class="support-copy">
+              Stop the session from the dashboard when the event ends. This
+              revokes access and the app can clear local event cache on this
+              machine.
+            </p>
+          </section>
+        </aside>
       </section>
 
       <section class="card">
         <div class="log-head">
-          <h2>Activity</h2>
+          <div>
+            <p class="eyebrow">Activity</p>
+            <h2>Sync log</h2>
+          </div>
           <button id="clearLog" class="ghost" type="button">Clear</button>
         </div>
         <pre id="log" class="log"></pre>

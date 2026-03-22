@@ -50,9 +50,18 @@ Tauri will create platform-specific app bundles in `src-tauri/target/release/bun
 
 The booth operator needs:
 
-- The HeyGrats site origin, for example `https://app.heygrats.com`
 - A sync token generated from `Dashboard -> Local Sync`
 - The local photobooth export folder
+
+By default, the app connects to `https://heygrats.com`.
+
+If you are testing against local or staging environments, open the `Advanced`
+section and provide an origin override there.
+
+## GitHub Releases
+
+This repo includes a GitHub Actions workflow that builds macOS and Windows
+installers automatically whenever a GitHub Release is published.
 
 ## Supported Media
 

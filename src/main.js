@@ -2,12 +2,25 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { open } from '@tauri-apps/plugin-dialog'
 
+const DEFAULT_ORIGIN = 'https://heygrats.com'
 const originInput = document.querySelector('#origin')
+const originBadge = document.querySelector('#originBadge')
 const tokenInput = document.querySelector('#token')
 const folderInput = document.querySelector('#folder')
-const deviceNameInput = document.querySelector('#deviceName')
 const statusEl = document.querySelector('#status')
 const logEl = document.querySelector('#log')
+const storageKey = 'heygrats-local-sync-ui'
+
+restoreDraft()
+updateOriginBadge()
+
+originInput?.addEventListener('input', () => {
+  updateOriginBadge()
+  persistDraft()
+})
+
+tokenInput?.addEventListener('input', persistDraft)
+folderInput?.addEventListener('input', persistDraft)
 
 function appendLog(message) {
   const timestamp = new Date().toLocaleTimeString()
@@ -22,11 +35,39 @@ function setStatus(kind, message) {
 
 function getPayload() {
   return {
-    origin: originInput.value.trim(),
+    origin: originInput.value.trim() || DEFAULT_ORIGIN,
     token: tokenInput.value.trim(),
     folder: folderInput.value.trim(),
-    deviceName: deviceNameInput.value.trim()
+    deviceName: ''
   }
+}
+
+function updateOriginBadge() {
+  if (originBadge) {
+    originBadge.textContent = originInput.value.trim() || DEFAULT_ORIGIN
+  }
+}
+
+function persistDraft() {
+  try {
+    window.localStorage.setItem(
+      storageKey,
+      JSON.stringify({
+        origin: originInput.value.trim(),
+        folder: folderInput.value.trim()
+      })
+    )
+  } catch {}
+}
+
+function restoreDraft() {
+  try {
+    const raw = window.localStorage.getItem(storageKey)
+    if (!raw) return
+    const value = JSON.parse(raw)
+    if (typeof value.origin === 'string') originInput.value = value.origin
+    if (typeof value.folder === 'string') folderInput.value = value.folder
+  } catch {}
 }
 
 async function refreshStatus() {
@@ -52,6 +93,7 @@ document.querySelector('#pickFolder').addEventListener('click', async () => {
   })
   if (typeof selected === 'string') {
     folderInput.value = selected
+    persistDraft()
   }
 })
 
@@ -62,6 +104,7 @@ document.querySelector('#start').addEventListener('click', async () => {
     if (status.eventCode) {
       appendLog(`Connected to event ${status.eventCode}.`)
     }
+    persistDraft()
     setStatus(
       'running',
       `Running for ${status.eventCode || 'event'} from ${status.folder || 'folder'}`
@@ -132,4 +175,3 @@ listen('sync-cleanup', async (event) => {
 })
 
 refreshStatus()
-

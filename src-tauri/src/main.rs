@@ -17,6 +17,8 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::{sync::{mpsc, watch}, time::interval};
 use walkdir::WalkDir;
 
+const DEFAULT_ORIGIN: &str = "https://heygrats.com";
+
 #[derive(Default)]
 struct SyncRuntime {
   active: Mutex<Option<ActiveSync>>,
@@ -100,12 +102,12 @@ async fn start_sync(
   runtime: State<'_, SyncRuntime>,
   input: StartSyncInput,
 ) -> Result<SyncStatus, String> {
-  let origin = normalize_origin(&input.origin)?;
+  normalize_origin(&input.origin)?;
   let token = input.token.trim().to_string();
   let folder = input.folder.trim().to_string();
 
-  if origin.is_empty() || token.is_empty() || folder.is_empty() {
-    return Err("Origin, token, and folder are required.".into());
+  if token.is_empty() || folder.is_empty() {
+    return Err("Token and folder are required.".into());
   }
 
   let folder_path = PathBuf::from(&folder);
@@ -199,7 +201,7 @@ async fn run_sync(
   };
   let folder = PathBuf::from(input.folder.trim());
   let device_name = if input.device_name.trim().is_empty() {
-    "HeyGrats Booth".to_string()
+    default_device_name()
   } else {
     input.device_name.trim().to_string()
   };
@@ -601,11 +603,9 @@ fn normalize_relative_path(root: &Path, file_path: &Path) -> String {
 
 fn normalize_origin(value: &str) -> Result<String, String> {
   let raw = value.trim().trim_end_matches('/');
-  if raw.is_empty() {
-    return Err("Origin is required.".into());
-  }
+  let candidate = if raw.is_empty() { DEFAULT_ORIGIN } else { raw };
 
-  let parsed = Url::parse(raw).map_err(|_| {
+  let parsed = Url::parse(candidate).map_err(|_| {
     "Origin must be a full URL like http://localhost:3000 or https://app.heygrats.com"
       .to_string()
   })?;
@@ -619,6 +619,19 @@ fn normalize_origin(value: &str) -> Result<String, String> {
   } else {
     Ok(origin)
   }
+}
+
+fn default_device_name() -> String {
+  for key in ["COMPUTERNAME", "HOSTNAME"] {
+    if let Ok(value) = std::env::var(key) {
+      let trimmed = value.trim();
+      if !trimmed.is_empty() {
+        return trimmed.to_string();
+      }
+    }
+  }
+
+  "HeyGrats Booth".into()
 }
 
 fn display_event_name(event: Option<&EventSummary>) -> String {
