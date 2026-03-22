@@ -21,8 +21,10 @@ use tokio::{sync::{mpsc, watch}, time::interval};
 use walkdir::WalkDir;
 
 const DEFAULT_ORIGIN: &str = "https://heygrats.com";
-const APP_WIDTH: f64 = 1040.0;
-const APP_HEIGHT: f64 = 860.0;
+const APP_WIDTH: f64 = 1120.0;
+const APP_HEIGHT: f64 = 940.0;
+const APP_MIN_WIDTH: f64 = 980.0;
+const APP_MIN_HEIGHT: f64 = 820.0;
 const APP_ASPECT_RATIO: f64 = APP_WIDTH / APP_HEIGHT;
 
 #[derive(Default)]
@@ -885,10 +887,10 @@ fn enforce_aspect_ratio(
   let height_delta = (logical_size.height - state.last_height).abs();
 
   let (target_width, target_height) = if width_delta >= height_delta {
-    let width = logical_size.width.max(900.0);
+    let width = logical_size.width.max(APP_MIN_WIDTH);
     (width, (width / APP_ASPECT_RATIO).round())
   } else {
-    let height = logical_size.height.max(744.0);
+    let height = logical_size.height.max(APP_MIN_HEIGHT);
     ((height * APP_ASPECT_RATIO).round(), height)
   };
 

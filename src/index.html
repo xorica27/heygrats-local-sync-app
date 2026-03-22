@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>HeyGrats Local Sync</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -11,22 +17,14 @@
       <section class="hero card card-hero">
         <div class="hero-mark">H</div>
         <div class="hero-copy">
-          <p class="eyebrow">HeyGrats Photobooth Tool</p>
-          <h1>Local Sync</h1>
-          <p class="lede">
-            Keep the booth export folder connected to HeyGrats so new photos
-            land on the wall in near real time.
-          </p>
-          <div class="hero-meta">
-            <div class="meta-pill">
-              <span class="meta-label">Default site</span>
-              <strong id="originBadge">https://heygrats.com</strong>
-            </div>
-            <div class="meta-pill">
-              <span class="meta-label">Best for</span>
-              <strong>Photobooth vendors</strong>
-            </div>
+          <div class="hero-title-row">
+            <h1>HeyGrats Local Sync</h1>
+            <div class="app-version" id="appVersion"></div>
           </div>
+          <p class="lede">
+            Connect your local folder to HeyGrats server and sync photos to the
+            event wall in real time.
+          </p>
         </div>
       </section>
 
@@ -69,16 +67,25 @@
             <summary>Advanced</summary>
             <div class="advanced-panel">
               <label class="field field-full">
-                <span>Origin Override</span>
+                <div class="field-label-row">
+                  <span>Origin Override</span>
+                  <button
+                    class="hint-trigger"
+                    type="button"
+                    aria-label="Origin override details"
+                  >
+                    i
+                  </button>
+                  <p class="hint-tooltip">
+                    Only change this for local or staging builds. Production sync uses
+                    <strong>https://heygrats.com</strong>.
+                  </p>
+                </div>
                 <input
                   id="origin"
                   placeholder="Leave empty to use https://heygrats.com"
                 />
               </label>
-              <p class="hint">
-                Only change this for local or staging builds. Production sync
-                uses <strong>https://heygrats.com</strong>.
-              </p>
             </div>
           </details>
         </section>
@@ -88,9 +95,9 @@
             <p class="eyebrow">Before You Start</p>
             <h2>What you need</h2>
             <ul class="mini-list">
-              <li>A fresh sync token from HeyGrats dashboard</li>
-              <li>The booth export folder on this machine</li>
-              <li>The app left open during the event</li>
+              <li>A new Sync Token from HeyGrats Dashboard/Local Sync</li>
+              <li>The folder where your booth saves photos/videos on this computer</li>
+              <li>Keep this app running for the full event</li>
             </ul>
           </section>
 
