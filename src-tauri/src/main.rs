@@ -13,11 +13,17 @@ use std::{
   sync::{Arc, Mutex},
   time::Duration,
 };
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{
+  AppHandle, Emitter, LogicalSize, Manager, PhysicalSize, Size, State,
+  WebviewWindow, WindowEvent,
+};
 use tokio::{sync::{mpsc, watch}, time::interval};
 use walkdir::WalkDir;
 
 const DEFAULT_ORIGIN: &str = "https://heygrats.com";
+const APP_WIDTH: f64 = 1040.0;
+const APP_HEIGHT: f64 = 860.0;
+const APP_ASPECT_RATIO: f64 = APP_WIDTH / APP_HEIGHT;
 
 #[derive(Default)]
 struct SyncRuntime {
@@ -28,6 +34,22 @@ struct SyncRuntime {
 struct ActiveSync {
   stop_tx: watch::Sender<bool>,
   task: tauri::async_runtime::JoinHandle<()>,
+}
+
+struct ResizeLockState {
+  adjusting: bool,
+  last_width: f64,
+  last_height: f64,
+}
+
+impl Default for ResizeLockState {
+  fn default() -> Self {
+    Self {
+      adjusting: false,
+      last_width: APP_WIDTH,
+      last_height: APP_HEIGHT,
+    }
+  }
 }
 
 #[derive(Debug, Clone, Serialize, Default)]
@@ -774,6 +796,10 @@ fn main() {
   tauri::Builder::default()
     .plugin(tauri_plugin_dialog::init())
     .manage(SyncRuntime::default())
+    .setup(|app| {
+      install_resize_lock(app);
+      Ok(())
+    })
     .invoke_handler(tauri::generate_handler![
       start_sync,
       stop_sync,
@@ -782,4 +808,76 @@ fn main() {
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
+}
+
+fn install_resize_lock(app: &tauri::App) {
+  let Some(window) = app.get_webview_window("main") else {
+    return;
+  };
+
+  let resize_state = Arc::new(Mutex::new(ResizeLockState::default()));
+  let window_handle = window.clone();
+  let resize_state_handle = resize_state.clone();
+
+  window.on_window_event(move |event| {
+    if let WindowEvent::Resized(size) = event {
+      let _ = enforce_aspect_ratio(&window_handle, *size, &resize_state_handle);
+    }
+  });
+}
+
+fn enforce_aspect_ratio(
+  window: &WebviewWindow,
+  size: PhysicalSize<u32>,
+  state: &Arc<Mutex<ResizeLockState>>,
+) -> tauri::Result<()> {
+  let scale_factor = window.scale_factor()?;
+  let logical_size = size.to_logical::<f64>(scale_factor);
+
+  let mut state = match state.lock() {
+    Ok(value) => value,
+    Err(_) => return Ok(()),
+  };
+
+  if state.adjusting {
+    state.adjusting = false;
+    state.last_width = logical_size.width;
+    state.last_height = logical_size.height;
+    return Ok(());
+  }
+
+  if window.is_maximized()? || window.is_fullscreen()? {
+    state.last_width = logical_size.width;
+    state.last_height = logical_size.height;
+    return Ok(());
+  }
+
+  let width_delta = (logical_size.width - state.last_width).abs();
+  let height_delta = (logical_size.height - state.last_height).abs();
+
+  let (target_width, target_height) = if width_delta >= height_delta {
+    let width = logical_size.width.max(900.0);
+    (width, (width / APP_ASPECT_RATIO).round())
+  } else {
+    let height = logical_size.height.max(744.0);
+    ((height * APP_ASPECT_RATIO).round(), height)
+  };
+
+  if (target_width - logical_size.width).abs() < 1.0
+    && (target_height - logical_size.height).abs() < 1.0
+  {
+    state.last_width = logical_size.width;
+    state.last_height = logical_size.height;
+    return Ok(());
+  }
+
+  state.adjusting = true;
+  state.last_width = target_width;
+  state.last_height = target_height;
+  drop(state);
+
+  window.set_size(Size::Logical(LogicalSize::new(
+    target_width,
+    target_height,
+  )))
 }
