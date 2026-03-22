@@ -63,6 +63,23 @@ section and provide an origin override there.
 This repo includes a GitHub Actions workflow that builds macOS and Windows
 installers automatically whenever a GitHub Release is published.
 
+## Release Flow
+
+1. Bump the app version everywhere with:
+
+```bash
+npm run version:set -- 0.1.1
+```
+
+2. Commit and push the version bump.
+3. Publish a GitHub Release with the matching tag, for example `v0.1.1`.
+4. GitHub Actions will build and attach the macOS and Windows installers.
+
+Keep the version and release tag aligned:
+
+- App version: `0.1.1`
+- Release tag: `v0.1.1`
+
 ## Supported Media
 
 - Images: `jpg`, `jpeg`, `png`, `gif`, `webp`, `avif`, `heic`, `heif`

@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "version:set": "node scripts/set-version.mjs",
     "web:dev": "vite",
     "web:build": "vite build",
     "tauri": "tauri",
