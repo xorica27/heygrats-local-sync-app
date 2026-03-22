@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HeyGrats Local Sync</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">HeyGrats Photobooth Tool</p>
+        <h1>Local Sync</h1>
+        <p class="lede">
+          Watch a folder on this booth machine and push new exports onto the
+          event wall in near real time.
+        </p>
+      </section>
+
+      <section class="card">
+        <div class="grid">
+          <label class="field">
+            <span>Live Origin</span>
+            <input
+              id="origin"
+              placeholder="https://your-live-domain.com or paste the dashboard URL"
+            />
+          </label>
+
+          <label class="field">
+            <span>Sync Token</span>
+            <input id="token" placeholder="hgsync_xxx" />
+          </label>
+
+          <label class="field">
+            <span>Device Name</span>
+            <input id="deviceName" placeholder="Booth MacBook 01" />
+          </label>
+
+          <div class="field">
+            <span>Watched Folder</span>
+            <div class="folder-row">
+              <input id="folder" placeholder="/Users/name/Desktop/exports" />
+              <button id="pickFolder" class="secondary" type="button">
+                Browse
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="start" type="button">Start Sync</button>
+          <button id="stop" class="secondary" type="button">Stop Sync</button>
+          <button id="clearState" class="ghost" type="button">
+            Clear Local Cache
+          </button>
+        </div>
+
+        <div id="status" class="status idle">Idle</div>
+      </section>
+
+      <section class="card">
+        <div class="log-head">
+          <h2>Activity</h2>
+          <button id="clearLog" class="ghost" type="button">Clear</button>
+        </div>
+        <pre id="log" class="log"></pre>
+      </section>
+    </main>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+  </html>

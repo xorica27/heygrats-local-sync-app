@@ -1,0 +1,223 @@
+:root {
+  color-scheme: light;
+  --bg: #f3efe7;
+  --card: rgba(255, 255, 255, 0.82);
+  --border: rgba(28, 32, 36, 0.1);
+  --ink: #15202b;
+  --muted: #61717f;
+  --accent: #0f766e;
+  --accent-strong: #115e59;
+  --soft: #e6fffb;
+  --warn: #9a3412;
+  --warn-bg: #ffedd5;
+  --shadow: 0 24px 60px rgba(21, 32, 43, 0.12);
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(20, 184, 166, 0.18), transparent 32%),
+    radial-gradient(circle at bottom right, rgba(251, 146, 60, 0.16), transparent 28%),
+    linear-gradient(160deg, #f8f5ef 0%, #eef7f5 100%);
+  color: var(--ink);
+}
+
+.shell {
+  width: min(940px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 36px 0 48px;
+}
+
+.hero {
+  margin-bottom: 20px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-strong);
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(38px, 7vw, 58px);
+  line-height: 0.95;
+}
+
+.lede {
+  max-width: 620px;
+  margin: 14px 0 0;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.card {
+  margin-top: 18px;
+  padding: 20px;
+  background: var(--card);
+  backdrop-filter: blur(18px);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field span {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+input {
+  width: 100%;
+  border: 1px solid rgba(21, 32, 43, 0.12);
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 14px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.86);
+}
+
+input:focus {
+  outline: 2px solid rgba(15, 118, 110, 0.18);
+  border-color: rgba(15, 118, 110, 0.42);
+}
+
+.folder-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+button {
+  appearance: none;
+  border: 0;
+  border-radius: 14px;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  color: white;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+  transition: transform 120ms ease, opacity 120ms ease, box-shadow 120ms ease;
+  box-shadow: 0 14px 30px rgba(15, 118, 110, 0.2);
+}
+
+button:hover {
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+button.secondary {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: none;
+  border: 1px solid rgba(21, 32, 43, 0.1);
+}
+
+button.ghost {
+  color: var(--muted);
+  background: transparent;
+  box-shadow: none;
+  border: 1px dashed rgba(21, 32, 43, 0.14);
+}
+
+.status {
+  margin-top: 16px;
+  border-radius: 16px;
+  padding: 14px 16px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.status.idle {
+  background: rgba(255, 255, 255, 0.74);
+  color: var(--muted);
+}
+
+.status.running {
+  background: var(--soft);
+  color: var(--accent-strong);
+}
+
+.status.error {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+
+.log-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.log-head h2 {
+  margin: 0;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.log {
+  margin: 0;
+  min-height: 280px;
+  max-height: 420px;
+  overflow: auto;
+  border-radius: 18px;
+  padding: 16px;
+  background: #10212a;
+  color: #d6ecf1;
+  font: 13px/1.6 "SFMono-Regular", "Menlo", monospace;
+}
+
+@media (max-width: 720px) {
+  .shell {
+    width: min(100vw - 20px, 940px);
+    padding-top: 20px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .folder-row {
+    grid-template-columns: 1fr;
+  }
+}
+
