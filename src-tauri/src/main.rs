@@ -128,7 +128,7 @@ async fn start_sync(
   input: StartSyncInput,
 ) -> Result<SyncStatus, String> {
   normalize_origin(&input.origin)?;
-  let token = input.token.trim().to_string();
+  let token = normalize_sync_token(&input.token);
   let folder = input.folder.trim().to_string();
 
   if token.is_empty() || folder.is_empty() {
@@ -190,11 +190,11 @@ fn get_sync_status(runtime: State<'_, SyncRuntime>) -> SyncStatus {
 
 #[tauri::command]
 fn clear_sync_cache(app: AppHandle, token: String) -> Result<(), String> {
-  let token = token.trim();
+  let token = normalize_sync_token(&token);
   if token.is_empty() {
     return Err("Token is required to clear local cache.".into());
   }
-  let path = cache_file_path(&app, token)?;
+  let path = cache_file_path(&app, &token)?;
   if path.exists() {
     fs::remove_file(path).map_err(|err| err.to_string())?;
   }
@@ -594,6 +594,18 @@ fn hash_token(token: &str) -> String {
   let mut hasher = Sha256::new();
   hasher.update(token.as_bytes());
   format!("{:x}", hasher.finalize())
+}
+
+fn normalize_sync_token(value: &str) -> String {
+  let trimmed = value.trim();
+  if trimmed.is_empty() {
+    return String::new();
+  }
+  if trimmed.starts_with("hgsync_") {
+    trimmed.to_string()
+  } else {
+    format!("hgsync_{trimmed}")
+  }
 }
 
 fn hash_file(path: &Path) -> Result<String, String> {
