@@ -1,86 +1,67 @@
-# HeyGrats Local Sync App
+# HeyGrats Local Sync
 
-Desktop sync companion for HeyGrats photobooth workflows.
+HeyGrats Local Sync helps photobooth operators send new files from a local booth folder to a HeyGrats event wall in real time.
 
-This app watches a local export folder on the booth machine and uploads new
-photos or videos to a HeyGrats event wall in near real time.
+## Download
 
-## What it does
+1. Open the latest release:  
+   https://github.com/xorica27/heygrats-local-sync-app/releases/latest
+2. Download the installer for your device:
+   - macOS: `.dmg`
+   - Windows: `.msi` or `.exe` (when available in the release assets)
 
-- Connects to a HeyGrats site using an event sync token
-- Watches a local folder for new media
-- Uploads supported files directly into the HeyGrats local-sync pipeline
-- Prompts for local cleanup after a sync session is stopped
+## Install
 
-## Stack
+### macOS
 
-- Tauri 2
-- Vite
-- Rust
+1. Open the downloaded `.dmg`.
+2. Drag **HeyGrats Local Sync** into **Applications**.
+3. Open the app.
 
-## Requirements
+If macOS blocks first launch:
 
-- Node.js 20+
-- Rust stable toolchain
-- A running HeyGrats deployment with the local-sync backend endpoints enabled
+- Go to **System Settings → Privacy & Security**.
+- Under Security, click **Open Anyway** for HeyGrats Local Sync.
+- Open the app again.
 
-## Development
+### Windows
 
-Install dependencies:
+1. Run the downloaded installer.
+2. Follow the install steps.
+3. Open **HeyGrats Local Sync** from Start Menu/Desktop.
 
-```bash
-npm install
-```
+If SmartScreen warns on first launch, choose **More info → Run anyway** only if the file was downloaded from the official release page above.
 
-Run in development:
+## First-time setup
 
-```bash
-npm run dev
-```
+Before starting sync, prepare:
 
-## Production Build
+- A Sync Token from **heygrats.com → Dashboard/Local Sync**
+- The local folder where your booth saves photos
 
-```bash
-npm run build
-```
+Then in the app:
 
-Tauri will create platform-specific app bundles in `src-tauri/target/release/bundle/`.
+1. Paste your Sync Token.
+2. Select your watched folder.
+3. Click **Start Sync**.
 
-## Operator Inputs
+The app connects to `https://heygrats.com` by default.
 
-The booth operator needs:
+## What the app does
 
-- A sync token generated from `Dashboard -> Local Sync`
-- The local photobooth export folder
+- Watches your local folder for new media.
+- Uploads supported media to your HeyGrats event wall.
+- Shows sync activity logs.
+- Lets you clear local sync cache after an event.
 
-By default, the app connects to `https://heygrats.com`.
+## Security and permissions
 
-If you are testing against local or staging environments, open the `Advanced`
-section and provide an origin override there.
+- The app needs file access to the folder you choose for syncing.
+- The app sends media and sync requests to HeyGrats services.
+- Do not share your Sync Token with others.
+- Use installers only from the official GitHub Releases page.
 
-## GitHub Releases
+## Supported media
 
-This repo includes a GitHub Actions workflow that builds macOS and Windows
-installers automatically whenever a GitHub Release is published.
-
-## Release Flow
-
-1. Bump the app version everywhere with:
-
-```bash
-npm run version:set -- 0.1.1
-```
-
-2. Commit and push the version bump.
-3. Publish a GitHub Release with the matching tag, for example `v0.1.1`.
-4. GitHub Actions will build and attach the macOS and Windows installers.
-
-Keep the version and release tag aligned:
-
-- App version: `0.1.1`
-- Release tag: `v0.1.1`
-
-## Supported Media
-
-- Images: `jpg`, `jpeg`, `png`, `gif`, `webp`, `avif`, `heic`, `heif`
-- Video: `mp4`, `mov`, `webm`
+- Images only: `jpg`, `jpeg`, `png`, `webp`, `avif`, `heic`, `heif`
+- Not supported: `gif`, video files, and all other non-image formats

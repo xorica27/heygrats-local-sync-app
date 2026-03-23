@@ -365,7 +365,7 @@ async fn process_file(
   }
 
   if !is_supported_media(file_path) {
-    return Err("Unsupported file type".into());
+    return Err("Unsupported file type. Only images are accepted (no gif or video).".into());
   }
 
   let fingerprint = hash_file(file_path)?;
@@ -631,7 +631,7 @@ fn is_supported_media(path: &Path) -> bool {
     .map(|ext| {
       matches!(
         ext.to_lowercase().as_str(),
-        "jpg" | "jpeg" | "png" | "gif" | "webp" | "avif" | "heic" | "heif" | "mp4" | "mov" | "webm"
+        "jpg" | "jpeg" | "png" | "webp" | "avif" | "heic" | "heif"
       )
     })
     .unwrap_or(false)
@@ -646,14 +646,10 @@ fn guess_content_type(path: &Path) -> &'static str {
   {
     Some("jpg") | Some("jpeg") => "image/jpeg",
     Some("png") => "image/png",
-    Some("gif") => "image/gif",
     Some("webp") => "image/webp",
     Some("avif") => "image/avif",
     Some("heic") => "image/heic",
     Some("heif") => "image/heif",
-    Some("mp4") => "video/mp4",
-    Some("mov") => "video/quicktime",
-    Some("webm") => "video/webm",
     _ => "application/octet-stream",
   }
 }
