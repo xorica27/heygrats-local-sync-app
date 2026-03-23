@@ -11,13 +11,16 @@ use std::{
   io::Read,
   path::{Path, PathBuf},
   sync::{Arc, Mutex},
-  time::Duration,
+  time::{Duration, Instant, UNIX_EPOCH},
 };
 use tauri::{
   AppHandle, Emitter, LogicalSize, Manager, PhysicalSize, Size, State,
   WebviewWindow, WindowEvent,
 };
-use tokio::{sync::{mpsc, watch}, time::interval};
+use tokio::{
+  sync::{mpsc, watch},
+  time::{interval, sleep},
+};
 use walkdir::WalkDir;
 
 const DEFAULT_ORIGIN: &str = "https://heygrats.com";
@@ -26,6 +29,9 @@ const APP_HEIGHT: f64 = 940.0;
 const APP_MIN_WIDTH: f64 = 980.0;
 const APP_MIN_HEIGHT: f64 = 820.0;
 const APP_ASPECT_RATIO: f64 = APP_WIDTH / APP_HEIGHT;
+const MAX_FILE_SIZE_BYTES: u64 = 50 * 1024 * 1024;
+const FILE_STABLE_FOR_SECONDS: u64 = 2;
+const FILE_STABILITY_TIMEOUT_SECONDS: u64 = 30;
 
 #[derive(Default)]
 struct SyncRuntime {
@@ -224,7 +230,25 @@ async fn run_sync(
       return;
     }
   };
-  let folder = PathBuf::from(input.folder.trim());
+  let folder = match fs::canonicalize(input.folder.trim()) {
+    Ok(value) => value,
+    Err(error) => {
+      set_error(
+        &app,
+        &status,
+        &format!("Unable to resolve watched folder: {}", error),
+      );
+      return;
+    }
+  };
+  if !folder.is_dir() {
+    set_error(
+      &app,
+      &status,
+      &format!("Watched folder is not a directory: {}", folder.display()),
+    );
+    return;
+  }
   let device_name = if input.device_name.trim().is_empty() {
     default_device_name()
   } else {
@@ -360,25 +384,75 @@ async fn process_file(
   cache_path: &Path,
   status: &Arc<Mutex<SyncStatus>>,
 ) -> Result<(), String> {
-  if !file_path.is_file() {
+  let symlink_meta = fs::symlink_metadata(file_path).map_err(|error| {
+    format!(
+      "Failed reading metadata for {}: {}",
+      file_path.display(),
+      error
+    )
+  })?;
+  if symlink_meta.file_type().is_symlink() {
+    return Err(format!(
+      "Symlink entries are blocked for safety: {}",
+      file_path.display()
+    ));
+  }
+
+  let canonical_file_path = fs::canonicalize(file_path).map_err(|error| {
+    format!(
+      "Failed to resolve canonical path for {}: {}",
+      file_path.display(),
+      error
+    )
+  })?;
+  if !canonical_file_path.starts_with(root_folder) {
+    return Err(format!(
+      "Path escapes watched folder: {}",
+      canonical_file_path.display()
+    ));
+  }
+  if !canonical_file_path.is_file() {
     return Err("Not a file".into());
   }
 
-  if !is_supported_media(file_path) {
+  if !is_supported_media(&canonical_file_path) {
     return Err("Unsupported file type. Only images are accepted (no gif or video).".into());
   }
 
-  let fingerprint = hash_file(file_path)?;
+  let relative_path = normalize_relative_path(root_folder, &canonical_file_path)?;
+  let stable_snapshot = wait_for_stable_file(
+    &canonical_file_path,
+    Duration::from_secs(FILE_STABLE_FOR_SECONDS),
+    Duration::from_secs(FILE_STABILITY_TIMEOUT_SECONDS),
+  )
+  .await?;
+  if stable_snapshot.size > MAX_FILE_SIZE_BYTES {
+    return Err(format!(
+      "File too large ({} bytes). Limit is {} bytes: {}",
+      stable_snapshot.size, MAX_FILE_SIZE_BYTES, relative_path
+    ));
+  }
+
+  let expected_content_type = guess_content_type(&canonical_file_path)
+    .ok_or_else(|| "Unsupported file type. Only images are accepted.".to_string())?;
+  let detected_content_type = detect_content_type_from_magic(&canonical_file_path)?;
+  if expected_content_type != detected_content_type {
+    return Err(format!(
+      "File signature does not match extension for {} (expected {}, detected {})",
+      relative_path, expected_content_type, detected_content_type
+    ));
+  }
+
+  let fingerprint = hash_file(&canonical_file_path)?;
   if cache.uploaded.contains_key(&fingerprint) {
     return Ok(());
   }
 
-  let filename = file_path
+  let filename = canonical_file_path
     .file_name()
     .and_then(|name| name.to_str())
     .ok_or_else(|| "Invalid file name".to_string())?;
-  let content_type = guess_content_type(file_path);
-  let relative_path = normalize_relative_path(root_folder, file_path);
+  let content_type = expected_content_type;
 
   emit_log(app, &format!("Uploading {}...", relative_path));
 
@@ -400,7 +474,7 @@ async fn process_file(
     cache.uploaded.insert(
       fingerprint.clone(),
       CachedUpload {
-        file_path: file_path.display().to_string(),
+        file_path: canonical_file_path.display().to_string(),
         remote_path,
         uploaded_at: chrono_like_now(),
       },
@@ -422,9 +496,22 @@ async fn process_file(
     .signed_url
     .ok_or_else(|| "Signed upload response missing signed URL".to_string())?;
 
-  let bytes = tokio::fs::read(file_path)
+  let bytes = tokio::fs::read(&canonical_file_path)
     .await
     .map_err(|error| error.to_string())?;
+  let after_read_snapshot = file_snapshot(&canonical_file_path)?;
+  if after_read_snapshot.size != stable_snapshot.size
+    || after_read_snapshot.modified_ms != stable_snapshot.modified_ms
+  {
+    return Err(format!(
+      "File changed while being read (possible partial write): {} (size {} -> {}, modified {} -> {})",
+      relative_path,
+      stable_snapshot.size,
+      after_read_snapshot.size,
+      stable_snapshot.modified_ms,
+      after_read_snapshot.modified_ms
+    ));
+  }
 
   let mut headers = HeaderMap::new();
   headers.insert(
@@ -446,8 +533,6 @@ async fn process_file(
     .error_for_status()
     .map_err(|error| error.to_string())?;
 
-  let meta = fs::metadata(file_path).map_err(|error| error.to_string())?;
-
   let _: serde_json::Value = post_json(
     client,
     &format!("{origin}/api/local-sync/commit"),
@@ -456,7 +541,7 @@ async fn process_file(
       "path": signed_path,
       "contentType": content_type,
       "originalName": filename,
-      "fileSize": meta.len(),
+      "fileSize": after_read_snapshot.size,
       "fingerprint": fingerprint,
       "relativePath": relative_path,
       "deviceName": device_name,
@@ -467,7 +552,7 @@ async fn process_file(
   cache.uploaded.insert(
     fingerprint.clone(),
     CachedUpload {
-      file_path: file_path.display().to_string(),
+      file_path: canonical_file_path.display().to_string(),
       remote_path: signed_path,
       uploaded_at: chrono_like_now(),
     },
@@ -637,32 +722,133 @@ fn is_supported_media(path: &Path) -> bool {
     .unwrap_or(false)
 }
 
-fn guess_content_type(path: &Path) -> &'static str {
+fn guess_content_type(path: &Path) -> Option<&'static str> {
   match path
     .extension()
     .and_then(|value| value.to_str())
     .map(|value| value.to_lowercase())
     .as_deref()
   {
-    Some("jpg") | Some("jpeg") => "image/jpeg",
-    Some("png") => "image/png",
-    Some("webp") => "image/webp",
-    Some("avif") => "image/avif",
-    Some("heic") => "image/heic",
-    Some("heif") => "image/heif",
-    _ => "application/octet-stream",
+    Some("jpg") | Some("jpeg") => Some("image/jpeg"),
+    Some("png") => Some("image/png"),
+    Some("webp") => Some("image/webp"),
+    Some("avif") => Some("image/avif"),
+    Some("heic") => Some("image/heic"),
+    Some("heif") => Some("image/heif"),
+    _ => None,
   }
 }
 
-fn normalize_relative_path(root: &Path, file_path: &Path) -> String {
-  file_path
+fn detect_content_type_from_magic(path: &Path) -> Result<&'static str, String> {
+  let mut file = fs::File::open(path).map_err(|error| error.to_string())?;
+  let mut header = [0_u8; 32];
+  let count = file.read(&mut header).map_err(|error| error.to_string())?;
+  let bytes = &header[..count];
+
+  if bytes.len() >= 3 && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF {
+    return Ok("image/jpeg");
+  }
+  if bytes.len() >= 8
+    && bytes[0] == 0x89
+    && bytes[1] == b'P'
+    && bytes[2] == b'N'
+    && bytes[3] == b'G'
+    && bytes[4] == 0x0D
+    && bytes[5] == 0x0A
+    && bytes[6] == 0x1A
+    && bytes[7] == 0x0A
+  {
+    return Ok("image/png");
+  }
+  if bytes.len() >= 12 && &bytes[0..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
+    return Ok("image/webp");
+  }
+  if bytes.len() >= 12 && &bytes[4..8] == b"ftyp" {
+    let brand = &bytes[8..12];
+    if brand == b"avif" || brand == b"avis" {
+      return Ok("image/avif");
+    }
+    if brand == b"heic" || brand == b"heix" || brand == b"hevc" || brand == b"hevx" {
+      return Ok("image/heic");
+    }
+    if brand == b"mif1" || brand == b"msf1" || brand == b"heif" {
+      return Ok("image/heif");
+    }
+  }
+
+  Err(format!(
+    "File is not a supported image based on its binary signature: {}",
+    path.display()
+  ))
+}
+
+#[derive(Debug, Clone, Copy)]
+struct FileSnapshot {
+  size: u64,
+  modified_ms: u128,
+}
+
+fn file_snapshot(path: &Path) -> Result<FileSnapshot, String> {
+  let metadata = fs::metadata(path).map_err(|error| error.to_string())?;
+  let modified = metadata.modified().map_err(|error| error.to_string())?;
+  let modified_ms = modified
+    .duration_since(UNIX_EPOCH)
+    .map_err(|error| error.to_string())?
+    .as_millis();
+  Ok(FileSnapshot {
+    size: metadata.len(),
+    modified_ms,
+  })
+}
+
+async fn wait_for_stable_file(
+  path: &Path,
+  stable_for: Duration,
+  timeout: Duration,
+) -> Result<FileSnapshot, String> {
+  let start = Instant::now();
+  let mut last_snapshot = file_snapshot(path)?;
+  let mut stable_since = Instant::now();
+
+  loop {
+    if stable_since.elapsed() >= stable_for {
+      return Ok(last_snapshot);
+    }
+    if start.elapsed() >= timeout {
+      return Err(format!(
+        "File did not become stable within {} seconds: {}",
+        timeout.as_secs(),
+        path.display()
+      ));
+    }
+
+    sleep(Duration::from_millis(250)).await;
+    let current = file_snapshot(path)?;
+    if current.size != last_snapshot.size || current.modified_ms != last_snapshot.modified_ms {
+      last_snapshot = current;
+      stable_since = Instant::now();
+    }
+  }
+}
+
+fn normalize_relative_path(root: &Path, file_path: &Path) -> Result<String, String> {
+  let relative = file_path
     .strip_prefix(root)
-    .unwrap_or(file_path)
-    .to_string_lossy()
-    .replace('\\', "/")
+    .map_err(|_| {
+      format!(
+        "Cannot compute relative path because {} is outside {}",
+        file_path.display(),
+        root.display()
+      )
+    })?;
+  Ok(relative.to_string_lossy().replace('\\', "/"))
 }
 
 fn normalize_origin(value: &str) -> Result<String, String> {
+  if !developer_mode_enabled() {
+    return Ok(DEFAULT_ORIGIN.to_string());
+  }
+
   let raw = value.trim().trim_end_matches('/');
   let candidate = if raw.is_empty() { DEFAULT_ORIGIN } else { raw };
 
@@ -680,6 +866,18 @@ fn normalize_origin(value: &str) -> Result<String, String> {
   } else {
     Ok(origin)
   }
+}
+
+fn developer_mode_enabled() -> bool {
+  if cfg!(debug_assertions) {
+    return true;
+  }
+
+  let value = std::env::var("HEYGRATS_DEVELOPER_MODE").unwrap_or_default();
+  matches!(
+    value.trim().to_ascii_lowercase().as_str(),
+    "1" | "true" | "yes" | "on"
+  )
 }
 
 fn default_device_name() -> String {
